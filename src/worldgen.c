@@ -123,7 +123,7 @@ uint8_t interpolate (uint8_t a, uint8_t b, uint8_t c, uint8_t d, int x, int z) {
 // Calculates terrain height using a pointer to an array of anchors
 // The pointer should point towards the minichunk containing the desired
 // coordinates, with available neighbors on +X and +Z.
-uint8_t getHeightAtFromAnchors (int rx, int rz, ChunkAnchor *anchor_ptr) {
+uint8_t getHeightAtFromAnchors (int rx, int rz, const ChunkAnchor *anchor_ptr) {
 
   if (rx == 0 && rz == 0) {
     int height = getCornerHeight(anchor_ptr[0].hash, anchor_ptr[0].biome);
@@ -325,6 +325,7 @@ ChunkFeature getFeatureFromAnchor (ChunkAnchor anchor) {
   ChunkFeature feature;
   uint8_t feature_position = anchor.hash % (CHUNK_SIZE * CHUNK_SIZE);
 
+  feature.variant = 0;
   feature.x = feature_position % CHUNK_SIZE;
   feature.z = feature_position / CHUNK_SIZE;
   uint8_t skip_feature = false;
@@ -352,7 +353,6 @@ ChunkFeature getFeatureFromAnchor (ChunkAnchor anchor) {
   }
 
   return feature;
-
 }
 
 uint8_t getTerrainAt (int x, int y, int z, ChunkAnchor anchor) {

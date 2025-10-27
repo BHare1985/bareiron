@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #ifdef _WIN32
 #include <winsock2.h>
 #endif
@@ -71,7 +70,7 @@ void resetPlayerData (PlayerData *player) {
 }
 
 // Assigns the given data to a player_data entry
-int reservePlayerData (int client_fd, uint8_t *uuid, char *name) {
+int reservePlayerData (int client_fd, const uint8_t *uuid, const char *name) {
 
   for (int i = 0; i < MAX_PLAYERS; i ++) {
     // Found existing player entry (UUID match)
@@ -126,7 +125,7 @@ int getPlayerData (int client_fd, PlayerData **output) {
 }
 
 // Returns the player with the given name, or NULL if not found
-PlayerData *getPlayerByName (int start_offset, int end_offset, uint8_t *buffer) {
+PlayerData *getPlayerByName (int start_offset, int end_offset, const uint8_t *buffer) {
   for (int i = 0; i < MAX_PLAYERS; i ++) {
     if (player_data[i].client_fd == -1) continue;
     int j;
@@ -289,7 +288,7 @@ int givePlayerItem (PlayerData *player, uint16_t item, uint8_t count) {
   uint8_t slot = 255;
   uint8_t stack_size = getItemStackSize(item);
 
-  for (int i = 0; i < 41; i ++) {
+  for (int i = 0; i < INVENTORY_SIZE; i ++) {
     if (player->inventory_items[i] == item && player->inventory_count[i] <= stack_size - count) {
       slot = i;
       break;
@@ -297,7 +296,7 @@ int givePlayerItem (PlayerData *player, uint16_t item, uint8_t count) {
   }
 
   if (slot == 255) {
-    for (int i = 0; i < 41; i ++) {
+    for (int i = 0; i < INVENTORY_SIZE; i ++) {
       if (player->inventory_count[i] == 0) {
         slot = i;
         break;
@@ -333,8 +332,8 @@ void spawnPlayer (PlayerData *player) {
     spawn_x = (float)player->x + 0.5;
     spawn_y = player->y;
     spawn_z = (float)player->z + 0.5;
-    spawn_yaw = player->yaw * 180 / 127;
-    spawn_pitch = player->pitch * 90 / 127;
+    spawn_yaw = player->yaw * 180.0f / 127.0f;
+    spawn_pitch = player->pitch * 90.0f / 127.0f;
   }
 
   // Teleport player to spawn coordinates (first pass)
@@ -385,9 +384,9 @@ void spawnPlayer (PlayerData *player) {
 }
 
 // Broadcasts a player's entity metadata (sneak/sprint state) to other players
-void broadcastPlayerMetadata (PlayerData *player) {
-  uint8_t sneaking = (player->flags & 0x04) != 0;
-  uint8_t sprinting = (player->flags & 0x08) != 0;
+void broadcastPlayerMetadata (const PlayerData *player) {
+  const uint8_t sneaking = (player->flags & 0x04) != 0;
+  const uint8_t sprinting = (player->flags & 0x08) != 0;
 
   uint8_t entity_bit_mask = 0;
   if (sneaking) entity_bit_mask |= 0x02;
@@ -474,8 +473,8 @@ uint8_t getBlockChange (short x, uint8_t y, short z) {
       block_changes[i].z == z
     ) return block_changes[i].block;
     #ifdef ALLOW_CHESTS
-      // Skip chest contents
-      if (block_changes[i].block == B_chest) i += 14;
+    // Skip chest contents
+    if (block_changes[i].block == B_chest) i += 14;
     #endif
   }
   return 0xFF;
@@ -592,11 +591,11 @@ uint8_t makeBlockChange (short x, uint8_t y, short z, uint8_t block) {
       block_changes[last_real_entry + 1].z = z;
       block_changes[last_real_entry + 1].block = block;
       // Zero out the following 14 entries for item data
-      for (int i = 2; i <= 15; i ++) {
-        block_changes[last_real_entry + i].x = 0;
-        block_changes[last_real_entry + i].y = 0;
-        block_changes[last_real_entry + i].z = 0;
-        block_changes[last_real_entry + i].block = 0;
+      for (int j = 2; j <= 15; j ++) {
+        block_changes[last_real_entry + j].x = 0;
+        block_changes[last_real_entry + j].y = 0;
+        block_changes[last_real_entry + j].z = 0;
+        block_changes[last_real_entry + j].block = 0;
       }
       // Extend future search range if necessary
       if (i >= block_changes_count) {
@@ -650,7 +649,6 @@ uint16_t getMiningResult (uint16_t held_item, uint8_t block) {
       if (r < 85899345) return I_stick; // 2%
       if (r < 214748364) return I_oak_sapling; // 5%
       return 0;
-      break;
 
     case B_stone:
     case B_cobblestone:
@@ -733,7 +731,7 @@ void bumpToolDurability (PlayerData *player) {
 }
 
 // Checks whether the given block would be mined instantly with the held tool
-uint8_t isInstantlyMined (PlayerData *player, uint8_t block) {
+uint8_t isInstantlyMined (const PlayerData *player, uint8_t block) {
 
   uint16_t held_item = player->inventory_items[player->hotbar];
 
@@ -926,7 +924,7 @@ uint8_t getItemDefensePoints (uint16_t item) {
 }
 
 // Calculates total defense points for the player's equipped armor
-uint8_t getPlayerDefensePoints (PlayerData *player) {
+uint8_t getPlayerDefensePoints (const PlayerData *player) {
   return (
     // Helmet
     getItemDefensePoints(player->inventory_items[39]) +
@@ -940,7 +938,7 @@ uint8_t getPlayerDefensePoints (PlayerData *player) {
 }
 
 // Returns the designated server slot for the given piece of armor
-// If input item is not armor, returns 255
+// If input item is not armor, returns INVENTORY_SIZE-1
 uint8_t getArmorItemSlot (uint16_t item) {
 
     switch (item) {
@@ -971,7 +969,7 @@ uint8_t getArmorItemSlot (uint16_t item) {
     default: break;
   }
 
-  return 255;
+  return INVENTORY_SIZE-1;
 }
 
 // Handles the player eating their currently held item
@@ -1110,7 +1108,7 @@ void checkFluidUpdate (short x, uint8_t y, short z, uint8_t block) {
 
 #ifdef ENABLE_PICKUP_ANIMATION
 // Plays the item pickup animation with the given item at the given coordinates
-void playPickupAnimation (PlayerData *player, uint16_t item, double x, double y, double z) {
+void playPickupAnimation (const PlayerData *player, const uint16_t item, double x, double y, double z) {
 
   // Spawn a new item entity at the input coordinates
   // ID -1 is safe, as elsewhere it's reserved as a placeholder
@@ -1209,7 +1207,7 @@ void handlePlayerAction (PlayerData *player, int action, short x, short y, short
     // Destroy the next block
     makeBlockChange(x, y + y_offset, z, 0);
     // Check for item drops *without a tool*
-    uint16_t item = getMiningResult(0, block_above);
+    item = getMiningResult(0, block_above);
     if (item) givePlayerItem(player, item, 1);
     // Select the next block in the column
     y_offset ++;
@@ -1272,11 +1270,11 @@ void handlePlayerUseItem (PlayerData *player, short x, short y, short z, uint8_t
       // This is a similarly dubious memcpy hack, but at least we're not
       // mixing data types? Kind of?
       for (int i = 0; i < 27; i ++) {
-        uint16_t item;
-        uint8_t count;
-        memcpy(&item, storage_ptr + i * 3, 2);
-        memcpy(&count, storage_ptr + i * 3 + 2, 1);
-        sc_setContainerSlot(player->client_fd, 2, i, count, item);
+        uint16_t slot_item;
+        uint8_t slot_count;
+        memcpy(&slot_item, storage_ptr + i * 3, 2);
+        memcpy(&slot_count, storage_ptr + i * 3 + 2, 1);
+        sc_setContainerSlot(player->client_fd, 2, i, slot_count, slot_item);
       }
       return;
     }
@@ -1313,8 +1311,8 @@ void handlePlayerUseItem (PlayerData *player, short x, short y, short z, uint8_t
     // Ignore the variant that has coordinates
     if (face != 255) return;
     // Swap to held piece of armor
-    uint8_t slot = getArmorItemSlot(*item);
-    uint16_t prev_item = player->inventory_items[slot];
+    const uint8_t slot = getArmorItemSlot(*item);
+    const uint16_t prev_item = player->inventory_items[slot];
     player->inventory_items[slot] = *item;
     player->inventory_count[slot] = 1;
     player->inventory_items[player->hotbar] = prev_item;
@@ -1423,6 +1421,7 @@ void interactEntity (int entity_id, int interactor_id) {
   MobData *mob = &mob_data[-entity_id - 2];
 
   switch (mob->type) {
+    default: break;
     case 106: // Sheep
       if (player->inventory_items[player->hotbar] != I_shears)
         return;
@@ -1442,7 +1441,7 @@ void interactEntity (int entity_id, int interactor_id) {
       givePlayerItem(player, I_white_wool, item_count);
 
       for (int i = 0; i < MAX_PLAYERS; i ++) {
-        PlayerData* player = &player_data[i];
+        player = &player_data[i];
         int client_fd = player->client_fd;
 
         if (client_fd == -1) continue;
@@ -1469,12 +1468,16 @@ void hurtEntity (int entity_id, int attacker_id, uint8_t damage_type, uint8_t da
 
     // Scale damage based on held item
     uint16_t held_item = player->inventory_items[player->hotbar];
-    if (held_item == I_wooden_sword) damage *= 4;
-    else if (held_item == I_golden_sword) damage *= 4;
-    else if (held_item == I_stone_sword) damage *= 5;
-    else if (held_item == I_iron_sword) damage *= 6;
-    else if (held_item == I_diamond_sword) damage *= 7;
-    else if (held_item == I_netherite_sword) damage *= 8;
+    switch (held_item)
+    {
+      default: break;
+        case I_wooden_sword: damage *= 4; break;
+        case I_golden_sword: damage *= 4; break;
+        case I_stone_sword: damage *= 5; break;
+        case I_iron_sword: damage *= 6; break;
+        case I_diamond_sword: damage *= 7; break;
+        case I_netherite_sword: damage *= 8; break;
+    }
 
     // Enable attack cooldown
     player->flags |= 0x01;
@@ -1899,7 +1902,7 @@ void handleServerTick (int64_t time_since_last_tick) {
       sc_teleportEntity (
         player_data[j].client_fd, entity_id,
         (double)new_x + 0.5, new_y, (double)new_z + 0.5,
-        yaw * 360 / 256, 0
+        yaw * 360.0f / 256.0f, 0
       );
       sc_setHeadRotation(player_data[j].client_fd, entity_id, yaw);
     }
@@ -1929,7 +1932,7 @@ void broadcastChestUpdate (int origin_fd, uint8_t *storage_ptr, uint16_t item, u
 }
 #endif
 
-ssize_t writeEntityData (int client_fd, EntityData *data) {
+ssize_t writeEntityData (int client_fd, const EntityData *data) {
   writeByte(client_fd, data->index);
   writeVarInt(client_fd, data->type);
 
@@ -1945,7 +1948,7 @@ ssize_t writeEntityData (int client_fd, EntityData *data) {
 }
 
 // Returns the networked size of an EntityData entry
-int sizeEntityData (EntityData *data) {
+int sizeEntityData (const EntityData *data) {
   int value_size;
 
   switch (data->type) {
@@ -1963,7 +1966,7 @@ int sizeEntityData (EntityData *data) {
 }
 
 // Returns the networked size of an array of EntityData entries
-int sizeEntityMetadata (EntityData *metadata, size_t length) {
+int sizeEntityMetadata (const EntityData *metadata, size_t length) {
   int total_size = 0;
   for (size_t i = 0; i < length; i ++) {
     int size = sizeEntityData(&metadata[i]);
