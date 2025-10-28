@@ -1,4 +1,3 @@
-#include <string.h>
 #include <stdio.h>
 
 #include "globals.h"
@@ -6,10 +5,10 @@
 #include "tools.h"
 #include "crafting.h"
 
-void getCraftingOutput (PlayerData *player, uint8_t *count, uint16_t *item) {
+void getCraftingOutput (const PlayerData *player, uint8_t *count, uint16_t *item) {
 
-  uint8_t i, filled = 0, first = 10, identical = true;
-  for (i = 0; i < 9; i ++) {
+  uint8_t filled = 0, first = 10, identical = true;
+  for (uint8_t i = 0; i < 9; i ++) {
     if (player->craft_items[i]) {
       filled ++;
       if (first == 10) first = i;
@@ -19,8 +18,9 @@ void getCraftingOutput (PlayerData *player, uint8_t *count, uint16_t *item) {
     }
   }
 
-  uint16_t first_item = player->craft_items[first];
-  uint8_t first_col = first % 3, first_row = first / 3;
+  const uint16_t first_item = player->craft_items[first];
+  const uint8_t first_col = first % 3;
+  const uint8_t first_row = first / 3;
 
   switch (filled) {
 
@@ -51,7 +51,8 @@ void getCraftingOutput (PlayerData *player, uint8_t *count, uint16_t *item) {
             *item = I_oak_pressure_plate;
             *count = 1;
             return;
-          } else if (first_row != 2 && player->craft_items[first + 3] == I_oak_planks) {
+          }
+          if (first_row != 2 && player->craft_items[first + 3] == I_oak_planks) {
             *item = I_stick;
             *count = 4;
             return;
@@ -381,7 +382,7 @@ void getSmeltingOutput (PlayerData *player) {
   else if (*fuel == I_wooden_hoe) fuel_value = 1;
   else return;
 
-  uint8_t exchange = *material_count > fuel_value ? fuel_value : *material_count;
+  const uint8_t exchange = *material_count > fuel_value ? fuel_value : *material_count;
 
   registerSmeltingRecipe(I_cobblestone, I_stone);
   else registerSmeltingRecipe(I_oak_log, I_charcoal);
@@ -405,7 +406,4 @@ void getSmeltingOutput (PlayerData *player) {
     *material_count = 0;
     *material = 0;
   } else return getSmeltingOutput(player);
-
-  return;
-
 }

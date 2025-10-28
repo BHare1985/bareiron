@@ -8,7 +8,6 @@
 #else
   #ifdef _WIN32
     #include <winsock2.h>
-    #include <ws2tcpip.h>
   #else
     #include <arpa/inet.h>
   #endif
@@ -52,7 +51,7 @@ int cs_handshake (int client_fd) {
   printf("  Protocol version: %d\n", (int)readVarInt(client_fd));
   readString(client_fd);
   if (recv_count == -1) return 1;
-  printf("  Server address: %s\n", recv_buffer);
+  printf("  Server address: %s\n", (char*) recv_buffer);
   printf("  Server port: %u\n", readUint16(client_fd));
   int intent = readVarInt(client_fd);
   if (intent == VARNUM_ERROR) return 1;
@@ -82,7 +81,7 @@ int cs_loginStart (int client_fd, uint8_t *uuid, char *name) {
 }
 
 // S->C Login Success
-int sc_loginSuccess (int client_fd, uint8_t *uuid, char *name) {
+int sc_loginSuccess (int client_fd, const uint8_t *uuid, const char *name) {
   printf("Sending Login Success...\n\n");
 
   uint8_t name_length = strlen(name);
@@ -98,35 +97,44 @@ int sc_loginSuccess (int client_fd, uint8_t *uuid, char *name) {
 
 int cs_clientInformation (int client_fd) {
   int tmp;
+
   printf("Received Client Information:\n");
   readString(client_fd);
   if (recv_count == -1) return 1;
-  printf("  Locale: %s\n", recv_buffer);
+  printf("  Locale: %s\n", (char*) recv_buffer);
+
   tmp = readByte(client_fd);
   if (recv_count == -1) return 1;
   printf("  View distance: %d\n", tmp);
+
   tmp = readVarInt(client_fd);
   if (recv_count == -1) return 1;
   printf("  Chat mode: %d\n", tmp);
+
   tmp = readByte(client_fd);
   if (recv_count == -1) return 1;
   if (tmp) printf("  Chat colors: on\n");
   else printf("  Chat colors: off\n");
+
   tmp = readByte(client_fd);
   if (recv_count == -1) return 1;
   printf("  Skin parts: %d\n", tmp);
+
   tmp = readVarInt(client_fd);
   if (recv_count == -1) return 1;
   if (tmp) printf("  Main hand: right\n");
   else printf("  Main hand: left\n");
+
   tmp = readByte(client_fd);
   if (recv_count == -1) return 1;
   if (tmp) printf("  Text filtering: on\n");
   else printf("  Text filtering: off\n");
+
   tmp = readByte(client_fd);
   if (recv_count == -1) return 1;
   if (tmp) printf("  Allow listing: on\n");
   else printf("  Allow listing: off\n");
+
   tmp = readVarInt(client_fd);
   if (recv_count == -1) return 1;
   printf("  Particles: %d\n\n", tmp);
@@ -152,11 +160,11 @@ int cs_pluginMessage (int client_fd) {
   printf("Received Plugin Message:\n");
   readString(client_fd);
   if (recv_count == -1) return 1;
-  printf("  Channel: \"%s\"\n", recv_buffer);
+  printf("  Channel: \"%s\"\n", (char*) recv_buffer);
   if (strcmp((char *)recv_buffer, "minecraft:brand") == 0) {
     readString(client_fd);
     if (recv_count == -1) return 1;
-    printf("  Brand: \"%s\"\n", recv_buffer);
+    printf("  Brand: \"%s\"\n", (char*) recv_buffer);
   }
   printf("\n");
   return 0;
@@ -611,7 +619,6 @@ int cs_clickContainer (int client_fd) {
 
   uint8_t slot, count, craft = false;
   uint16_t item;
-  int tmp;
 
   uint16_t *p_item;
   uint8_t *p_count;
@@ -701,21 +708,19 @@ int cs_clickContainer (int client_fd) {
 }
 
 // S->C Set Cursor Item
-int sc_setCursorItem (int client_fd, uint16_t item, uint8_t count) {
+void sc_setCursorItem (int client_fd, uint16_t item, uint8_t count) {
 
   writeVarInt(client_fd, 1 + sizeVarInt(count) + (count != 0 ? sizeVarInt(item) + 2 : 0));
   writeByte(client_fd, 0x59);
 
   writeVarInt(client_fd, count);
-  if (count == 0) return 0;
+  if (count == 0) return;
 
   writeVarInt(client_fd, item);
 
   // Skip components
   writeByte(client_fd, 0);
   writeByte(client_fd, 0);
-
-  return 0;
 }
 
 // C->S Set Player Position And Rotation
@@ -777,6 +782,7 @@ int cs_swingArm (int client_fd) {
 
   uint8_t animation = 255;
   switch (hand) {
+  default: break;
     case 0: {
       animation = 0;
       break;
@@ -875,9 +881,9 @@ int sc_playerInfoUpdateAddPlayer (int client_fd, PlayerData player) {
 }
 
 // S->C Spawn Entity
-int sc_spawnEntity (
+void sc_spawnEntity (
   int client_fd,
-  int id, uint8_t *uuid, int type,
+  int id, const uint8_t *uuid, int type,
   double x, double y, double z,
   uint8_t yaw, uint8_t pitch
 ) {
@@ -906,8 +912,6 @@ int sc_spawnEntity (
   writeUint16(client_fd, 0);
   writeUint16(client_fd, 0);
   writeUint16(client_fd, 0);
-
-  return 0;
 }
 
 // S->C Set Entity Metadata
@@ -931,8 +935,8 @@ int sc_setEntityMetadata (int client_fd, int id, EntityData *metadata, size_t le
 }
 
 // S->C Spawn Entity (from PlayerData)
-int sc_spawnEntityPlayer (int client_fd, PlayerData player) {
-  return sc_spawnEntity(
+void sc_spawnEntityPlayer (int client_fd, PlayerData player) {
+  sc_spawnEntity(
     client_fd,
     player.client_fd, player.uuid, 149,
     player.x > 0 ? (double)player.x + 0.5 : (double)player.x - 0.5,
@@ -1094,7 +1098,7 @@ int cs_clientStatus (int client_fd) {
 }
 
 // S->C System Chat
-int sc_systemChat (int client_fd, char* message, uint16_t len) {
+int sc_systemChat (int client_fd, const char* message, uint16_t len) {
 
   writeVarInt(client_fd, 5 + len);
   writeByte(client_fd, 0x72);
@@ -1174,7 +1178,7 @@ int cs_chat (int client_fd) {
     }
 
     // Format output as a vanilla whisper
-    int name_len = strlen(player->name);
+    name_len = strlen(player->name);
     int text_len = message_len - text_offset;
     memmove(recv_buffer + name_len + 24, recv_buffer + text_offset, text_len);
     snprintf((char *)recv_buffer, sizeof(recv_buffer), "§7§o%s whispers to you:", player->name);

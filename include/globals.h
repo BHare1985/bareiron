@@ -105,6 +105,8 @@
 // Size of the receive buffer for incoming string data
 #define MAX_RECV_BUF_LEN 256
 
+// Number of inventory slots
+#define INVENTORY_SIZE 41
 // If defined, sends the server brand to clients. Doesn't do much, but will
 // show up in the top-left of the F3/debug menu, in the Minecraft client.
 // You can change the brand string in the "brand" variable in src/globals.c
@@ -216,9 +218,9 @@ typedef struct {
   uint8_t hunger;
   uint16_t saturation;
   uint8_t hotbar;
-  uint16_t inventory_items[41];
+  uint16_t inventory_items[INVENTORY_SIZE];
   uint16_t craft_items[9];
-  uint8_t inventory_count[41];
+  uint8_t inventory_count[INVENTORY_SIZE];
   uint8_t craft_count[9];
   // Usage depends on player's flags, see below
   // When no flags are set, acts as cursor item ID

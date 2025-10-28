@@ -6,7 +6,7 @@
 #ifdef SYNC_WORLD_TO_DISK
   int initSerializer ();
   void writeBlockChangesToDisk (int from, int to);
-  void writeChestChangesToDisk (uint8_t *storage_ptr, uint8_t slot);
+  void writeChestChangesToDisk (const uint8_t *storage_ptr, uint8_t slot);
   void writePlayerDataToDisk ();
   void writeDataToDiskOnInterval ();
 #else

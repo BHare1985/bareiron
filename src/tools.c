@@ -101,7 +101,7 @@ ssize_t send_all (int client_fd, const void *buf, ssize_t len) {
   // Busy-wait (with task yielding) until all data has been sent
   while (sent < len) {
     #ifdef _WIN32
-      ssize_t n = send(client_fd, p + sent, len - sent, 0);
+      ssize_t n = send(client_fd, (const char *)(p + sent), len - sent, 0);
     #else
       ssize_t n = send(client_fd, p + sent, len - sent, MSG_NOSIGNAL);
     #endif
@@ -221,7 +221,7 @@ double readDouble (int client_fd) {
 ssize_t readLengthPrefixedData (int client_fd) {
   uint32_t length = readVarInt(client_fd);
   if (length >= MAX_RECV_BUF_LEN) {
-    printf("ERROR: Received length (%lu) exceeds maximum (%u)\n", length, MAX_RECV_BUF_LEN);
+    printf("ERROR: Received length (%u) exceeds maximum (%u)\n", length, MAX_RECV_BUF_LEN);
     disconnectClient(&client_fd, -1);
     recv_count = 0;
     return 0;

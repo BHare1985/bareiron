@@ -3,10 +3,12 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 
 #ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME 0
 #endif
+
 
 #ifdef ESP_PLATFORM
   #include "freertos/FreeRTOS.h"
@@ -39,6 +41,15 @@
 #include "registries.h"
 #include "procedures.h"
 #include "serialize.h"
+
+volatile sig_atomic_t keep_running = 1;
+
+void signal_handler(int signum) {
+  if (signum == SIGINT) {
+    printf("\nReceived Ctrl+C, shutting down gracefully...\n");
+    keep_running = 0;
+  }
+}
 
 /**
  * Routes an incoming packet to its packet handler or procedure.
@@ -270,8 +281,8 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
         if (should_broadcast) {
           // If the packet had no rotation data, calculate it from player data
           if (packet_id == 0x1D) {
-            yaw = player->yaw * 180 / 127;
-            pitch = player->pitch * 90 / 127;
+            yaw = player->yaw * 180.0f / 127.0f;
+            pitch = player->pitch * 90.0f / 127.0f;
           }
           // Send current position data to all connected players
           for (int i = 0; i < MAX_PLAYERS; i ++) {
@@ -315,13 +326,14 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
         short dz = _z - (player->z < 0 ? player->z - 16 : player->z) / 16;
 
         // Prevent players from leaving the world
-        if (cy < 0) {
-          cy = 0;
-          player->grounded_y = 0;
-          sc_synchronizePlayerPosition(client_fd, cx, 0, cz, player->yaw * 180 / 127, player->pitch * 90 / 127);
-        } else if (cy > 255) {
-          cy = 255;
-          sc_synchronizePlayerPosition(client_fd, cx, 255, cz, player->yaw * 180 / 127, player->pitch * 90 / 127);
+        if (cy < 0 || cy > 255) {
+          cy = cy < 0 ? 0 : 255;
+          player->grounded_y = (cy == 0) ? 0 : player->grounded_y;
+
+          yaw = player->yaw * 180.0f / 127.0f;
+          pitch = player->pitch * 90.0f / 127.0f;
+
+          sc_synchronizePlayerPosition(client_fd, cx, cy, cz, yaw, pitch);
         }
 
         // Update position in player data
@@ -497,6 +509,9 @@ void handlePacket (int client_fd, int length, int packet_id, int state) {
 }
 
 int main () {
+  // Register the signal handler
+  signal(SIGINT, signal_handler);
+
   #ifdef _WIN32 //initialize windows socket
     WSADATA wsa;
       if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -591,7 +606,7 @@ int main () {
    * from each player. With every iteration, attempts to accept a new
    * client connection.
    */
-  while (true) {
+  while (keep_running) {
     // Check if it's time to yield to the idle task
     task_yield();
 
@@ -603,8 +618,8 @@ int main () {
       if (clients[i] != -1) {
         printf("New client, fd: %d\n", clients[i]);
       #ifdef _WIN32
-        u_long mode = 1;
-        ioctlsocket(clients[i], FIONBIO, &mode);
+        u_long nonBlockingMode = 1;
+        ioctlsocket(clients[i], FIONBIO, &nonBlockingMode);
       #else
         int flags = fcntl(clients[i], F_GETFL, 0);
         fcntl(clients[i], F_SETFL, flags | O_NONBLOCK);
@@ -631,7 +646,7 @@ int main () {
 
     // Check if at least 2 bytes are available for reading
     #ifdef _WIN32
-    recv_count = recv(client_fd, recv_buffer, 2, MSG_PEEK);
+    recv_count = recv(client_fd, (char *) recv_buffer, 2, MSG_PEEK);
     if (recv_count == 0) {
       disconnectClient(&clients[client_index], 1);
       continue;

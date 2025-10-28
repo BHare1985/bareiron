@@ -1,8 +1,6 @@
 #ifndef H_PROCEDURES
 #define H_PROCEDURES
 
-#include <unistd.h>
-
 #include "globals.h"
 
 extern int client_states[MAX_PLAYERS * 2];
@@ -12,16 +10,16 @@ int getClientState (int client_fd);
 int getClientIndex (int client_fd);
 
 void resetPlayerData (PlayerData *player);
-int reservePlayerData (int client_fd, uint8_t *uuid, char* name);
+int reservePlayerData (int client_fd, const uint8_t *uuid, const char* name);
 int getPlayerData (int client_fd, PlayerData **output);
-PlayerData *getPlayerByName (int start_offset, int end_offset, uint8_t *buffer);
+PlayerData *getPlayerByName (int start_offset, int end_offset, const uint8_t *buffer);
 void handlePlayerDisconnect (int client_fd);
 void handlePlayerJoin (PlayerData* player);
 void disconnectClient (int *client_fd, int cause);
 int givePlayerItem (PlayerData *player, uint16_t item, uint8_t count);
 void spawnPlayer (PlayerData *player);
 
-void broadcastPlayerMetadata (PlayerData *player);
+void broadcastPlayerMetadata (const PlayerData *player);
 void broadcastMobMetadata (int client_fd, int entity_id);
 
 uint8_t serverSlotToClientSlot (int window_id, uint8_t slot);
@@ -30,7 +28,7 @@ uint8_t clientSlotToServerSlot (int window_id, uint8_t slot);
 uint8_t getBlockChange (short x, uint8_t y, short z);
 uint8_t makeBlockChange (short x, uint8_t y, short z, uint8_t block);
 
-uint8_t isInstantlyMined (PlayerData *player, uint8_t block);
+uint8_t isInstantlyMined (const PlayerData *player, uint8_t block);
 uint8_t isColumnBlock (uint8_t block);
 uint8_t isPassableBlock (uint8_t block);
 uint8_t isPassableSpawnBlock (uint8_t block);
@@ -52,9 +50,9 @@ void handleServerTick (int64_t time_since_last_tick);
 
 void broadcastChestUpdate (int origin_fd, uint8_t *storage_ptr, uint16_t item, uint8_t count, uint8_t slot);
 
-ssize_t writeEntityData (int client_fd, EntityData *data);
+ssize_t writeEntityData (int client_fd, const EntityData *data);
 
-int sizeEntityData (EntityData *data);
-int sizeEntityMetadata (EntityData *metadata, size_t length);
+int sizeEntityData (const EntityData *data);
+int sizeEntityMetadata (const EntityData *metadata, size_t length);
 
 #endif
